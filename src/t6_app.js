@@ -3,13 +3,13 @@ STOPS_EXTRA.forEach(s=>STOPS.push(s));STOPS_SOUTH.forEach(s=>STOPS.push(s));TIER
 STOPS.forEach(s=>{s.tier=TIER1.includes(s.id)?1:(s.major?2:3);if(s.tier===1)s.major=true;s.clim=CLIM[s.id]||null;
   const fx=HOSTEL_FIX[s.id]||[];const norm=x=>x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"");fx.forEach(f=>{const h=s.hostels.find(h=>h.n===f.match)||s.hostels.find(h=>norm(h.n)===norm(f.match))||s.hostels.find(h=>norm(h.n).includes(norm(f.match).slice(0,10)));if(h)Object.assign(h,f.set);});});
 Object.entries(LEG_FIX).forEach(([k,v])=>{LEGS[k]=v;});
-STOPS.forEach(s=>{const hwS=(typeof HW!=="undefined"&&HW[s.id])||{};s.hostels.forEach(h=>{const w=hwS[h.n];if(w){h.hw=w;if(!h.rating&&w.rating){h.rating=w.rating;h.rsrc="hostelworld";}if(!h.usd&&w.eur){h.usd=Math.round(w.eur*1.15);}h.verify=false;}else if(/^Selina\b/.test(h.n)&&!h.replaced){h.verify=true;h.t=(h.t||"")+" Selina went bankrupt in 2024; this branch may be closed or renamed (Socialtel). Check before relying on it.";}});});
+STOPS.forEach(s=>{const hwS=(typeof HW!=="undefined"&&HW[s.id])||{};s.hostels.forEach(h=>{const w=hwS[h.n];if(w){h.hw=w;if(!h.rating&&w.rating){h.rating=w.rating;h.rsrc="hostelworld";}if(!h.usd&&w.eur){h.usd=Math.round(w.eur*1.15);}h.verify=false;}else if((typeof HW_CLOSED!=="undefined"&&(HW_CLOSED[s.id]||[]).some(c=>c.key===h.n))){h.verify=true;h.t=(h.t||"")+" Its Hostelworld listing is gone (closed or delisted in 2025/26); check before booking.";}else if(/^Selina\b/.test(h.n)&&!h.replaced){h.verify=true;h.t=(h.t||"")+" Selina went bankrupt in 2024; this branch may be closed or renamed (Socialtel). Check before relying on it.";}});});
 Object.entries(EXTRA_HOSTELS).forEach(([id,hs])=>{const s=STOPS.find(x=>x.id===id);if(s)hs.forEach(h=>{if(!s.hostels.some(x=>x.n===h.n))s.hostels.push(h);});});
 const BY=Object.fromEntries(STOPS.map(s=>[s.id,s]));
 const WXN={9:"Sep",10:"Oct",11:"Nov",12:"Dec",1:"Jan"};
 function wxAt(s,month){const i=WXM.indexOf(month);if(i<0||!s.clim)return null;const c=s.clim,rain=c.rain[i];const r=rain<60?"g":rain<150?"a":"r";return {i,month,hi:c.hi[i],lo:c.lo[i],rain,r,sea:c.sea?c.sea[i]:null,label:r==="g"?"Dry & sunny":r==="a"?"Some showers":"Rainy season",cold:c.hi[i]<16,note:c.n};}
 function haversine(a,b){const R=6371,dLat=(b.lat-a.lat)*Math.PI/180,dLon=(b.lon-a.lon)*Math.PI/180;const x=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
-function leg(aId,bId){
+function baseLeg(aId,bId){
   if(aId===bId) return {m:"stay",h:0,u:0,d:0,n:"",est:false};
   const k1=aId+">"+bId,k2=bId+">"+aId;
   if(LEGS[k1]) return {...LEGS[k1],est:false};
@@ -18,6 +18,12 @@ function leg(aId,bId){
   if(km>750||(cross&&km>400)) return {m:"flight",h:Math.round(2+km/650+(cross?2:0)),u:Math.round(60+km*0.09),d:km>3000?1:0,n:"Estimate: no researched route; check Skyscanner / Kiwi.",est:true};
   return {m:"bus",h:Math.round(km/45),u:Math.round(km*0.05),d:km/45>=22?1:0,n:"Estimate from distance; check Busbud / Rome2rio.",est:true};
 }
+function altLeg(aId,bId,mode){const a=BY[aId],b=BY[bId],km=haversine(a,b),cross=a.cc!==b.cc;
+  if(mode==="flight")return {m:"flight",h:Math.round(2+km/650+(cross?2:0)),u:Math.round(60+km*0.09),d:0,n:"Flight estimate booked 2–4 weeks ahead; check Skyscanner / Kiwi.",est:true,alt:true};
+  const h=Math.round(km/48+(cross?3:0));return {m:"bus",h,u:Math.round(km*0.05),d:h>=20?1:0,n:"Overland estimate (direct buses, changes at borders); check Busbud / Rome2rio.",est:true,alt:true};}
+function legOptions(aId,bId){const base=baseLeg(aId,bId);if(base.m==="stay")return [base];const km=haversine(BY[aId],BY[bId]);const opts=[base];
+  if(base.m==="flight")opts.push(altLeg(aId,bId,"bus"));else if(km>350)opts.push(altLeg(aId,bId,"flight"));return opts;}
+function leg(aId,bId){const base=baseLeg(aId,bId);const want=(state.legMode||{})[aId+">"+bId];if(!want||want===base.m)return base;const o=legOptions(aId,bId).find(x=>x.m===want);return o||base;}
 const MODE_ICON={
  bus:'<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="14" rx="3"/><path d="M4 10h16M8 18v2M16 18v2M8 14h.01M16 14h.01"/></svg>',
  flight:'<svg viewBox="0 0 24 24"><path d="M2.5 19l19-7-19-7 4 7-4 7z"/></svg>',
@@ -43,8 +49,8 @@ const isMobile=()=>matchMedia("(max-width:760px)").matches;
 const reduced=()=>matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /* ============ STATE ============ */
-let state={start:"2026-09-11",daily:40,route:[],sel:"lima",filterCCs:[],filterTags:[],ddOpen:null,labels:false,insertAt:null,slots:{A:null,B:null},wx:false,wxMonth:10,anchors:[],done:[],lock:false,pcol:false,pw:460,cmpA:null,cmpB:null,picks:{},saved:[],cmpSaved:[]};
-try{const s=JSON.parse(localStorage.getItem("andes2copa.v2"));if(s&&Array.isArray(s.route)){delete s.filterCC;delete s.filterTag;delete s.jtab;delete s.jcol;state={...state,...s,insertAt:null,ddOpen:null};for(const k of ["filterCCs","filterTags","anchors","done","saved","cmpSaved"])if(!Array.isArray(state[k]))state[k]=[];if(state.slots&&(state.slots.A||state.slots.B)){["A","B"].forEach(k=>{if(state.slots[k])state.saved.push({id:"s"+Date.now()+k,name:state.slots[k].name||"Route "+k,route:state.slots[k].route,anchors:[],picks:{},created:Date.now()});});state.slots={};}if(!state.picks||typeof state.picks!=="object")state.picks={};}}catch(e){}
+let state={start:"2026-09-11",daily:40,route:[],sel:"lima",filterCCs:[],filterTags:[],ddOpen:null,labels:false,insertAt:null,slots:{A:null,B:null},wx:false,wxMonth:10,anchors:[],done:[],lock:false,pcol:false,pw:460,cmpA:null,cmpB:null,picks:{},saved:[],cmpSaved:[],legMode:{},checks:{},packDone:{}};
+try{const s=JSON.parse(localStorage.getItem("andes2copa.v2"));if(s&&Array.isArray(s.route)){delete s.filterCC;delete s.filterTag;delete s.jtab;delete s.jcol;state={...state,...s,insertAt:null,ddOpen:null};for(const k of ["filterCCs","filterTags","anchors","done","saved","cmpSaved"])if(!Array.isArray(state[k]))state[k]=[];if(state.slots&&(state.slots.A||state.slots.B)){["A","B"].forEach(k=>{if(state.slots[k])state.saved.push({id:"s"+Date.now()+k,name:state.slots[k].name||"Route "+k,route:state.slots[k].route,anchors:[],picks:{},created:Date.now()});});state.slots={};}if(!state.picks||typeof state.picks!=="object")state.picks={};if(!state.legMode||typeof state.legMode!=="object")state.legMode={};if(!state.checks||typeof state.checks!=="object")state.checks={};if(!state.packDone||typeof state.packDone!=="object")state.packDone={};}}catch(e){}
 (function(){try{const p=new URLSearchParams(location.search).get("r");if(!p)return;const dec=decodeRoute(p);if(dec){state.route=dec.route;if(dec.start)state.start=dec.start;if(dec.daily)state.daily=dec.daily;if(dec.anchors)state.anchors=dec.anchors;if(dec.picks)state.picks=dec.picks;if(dec.name)state.sharedName=dec.name;}}catch(e){}})();
 function encodeRoute(o){o=o||{};const route=o.route||state.route,anchors=o.anchors||state.anchors,picks=o.picks||state.picks;return btoa(unescape(encodeURIComponent(JSON.stringify({s:state.start,b:state.daily,r:route.map(r=>[r.id,r.days]),a:anchors,p:picks,n:o.name||""})))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");}
 function decodeRoute(p){try{const o=JSON.parse(decodeURIComponent(escape(atob(p.replace(/-/g,"+").replace(/_/g,"/")))));return {route:o.r.filter(([id])=>BY[id]).map(([id,days])=>({id,days:+days||BY[id].days})),start:o.s,daily:o.b,anchors:Array.isArray(o.a)?o.a.filter(a=>BY[a.id]):[],picks:o.p&&typeof o.p==="object"?o.p:{},name:o.n||""};}catch(e){return null;}}
@@ -133,8 +139,11 @@ function setVB(){const rr=svg.getBoundingClientRect();if(!rr.width||!rr.height)r
     STOPS.forEach(s=>{pinEls[s.id].setAttribute("transform",`translate(${px(s.lon)},${py(s.lat)}) scale(${k})`);});
     gLabels.querySelectorAll("text").forEach(t=>t.setAttribute("font-size",13*k));
     const z=K>0.62?"z-far":K>0.32?"z-mid":"z-near";if(!svg.classList.contains(z)){svg.classList.remove("z-far","z-mid","z-near");svg.classList.add(z);}
-    gWalker.querySelectorAll(".walker").forEach(w=>w.setAttribute("r",4.5*K));}
+    gWalker.querySelectorAll(".walker").forEach(w=>w.setAttribute("r",4.5*K));declutter(k);}
 }
+function declutter(k){const z=svg.classList.contains("z-far")?0:svg.classList.contains("z-mid")?1:2;const onSet=new Set([...state.route.map(r=>r.id),"rio"]);
+  const cand=STOPS.filter(s=>state.labels||z===2||(z===1&&(s.tier<=1||(s.tier===2&&onSet.has(s.id))))||(z===0&&s.tier===1)).map(s=>({s,x:px(s.lon),y:py(s.lat)+(s.R+12)*k,w:short(s.name).length*5.6*k,h:12*k,p:(s.tier===1?3:s.tier===2?2:1)+(onSet.has(s.id)?0.5:0)+(state.sel===s.id?10:0)})).sort((a,b)=>b.p-a.p);
+  const placed=[];cand.forEach(c=>{const hit=placed.some(o=>Math.abs(o.x-c.x)<(o.w+c.w)/2&&Math.abs(o.y-c.y)<(o.h+c.h));pinEls[c.s.id].classList.toggle("lblhide",hit&&state.sel!==c.s.id);if(!hit)placed.push(c);});}
 function setVBsoon(){if(vbRaf)return;vbRaf=requestAnimationFrame(()=>{vbRaf=0;setVB();});}
 function monthFor(id,S){S=S||schedule();const row=S.rows.find(r=>r.id===id);return row?row.from.getMonth()+1:state.wxMonth;}
 function nearbyOf(id){const s=BY[id];return STOPS.filter(o=>o.id!==id&&o.id!=="galapagos").map(o=>({o,lg:leg(id,o.id),km:haversine(s,o)})).filter(x=>x.km<450&&x.lg.h<=4&&x.lg.m!=="flight").sort((a,b)=>a.lg.h-b.lg.h).slice(0,6);}
@@ -277,6 +286,12 @@ function renderExplore(){
   pane.append(wrap);document.getElementById("eCnt").textContent=STOPS.filter(visible).length;
 }
 
+/* ============ CHECKLISTS ============ */
+function checksFor(s){return CHECKS.map((c,i)=>({...c,i})).filter(c=>c.stop===s.id||c.stop==="*"+s.cc);}
+function routeChecks(){const ids=new Set([...state.route.map(r=>r.id),"rio"]);const ccs=new Set([...ids].map(i=>BY[i].cc));return CHECKS.map((c,i)=>({...c,i})).filter(c=>c.stop==="*"||(c.stop.startsWith("*")&&ccs.has(c.stop.slice(1)))||ids.has(c.stop));}
+function checkHTML(list){return `<div class="checks">${list.map(c=>`<label class="ck${state.checks[c.i]?" done":""}"><input type="checkbox" data-ck="${c.i}" ${state.checks[c.i]?"checked":""}><span><b>${c.when==="before"?"Before you go":"On the spot"}${c.stop.startsWith("*")&&c.stop!=="*"?" · "+COUNTRY[c.stop.slice(1)]:!c.stop.startsWith("*")?" · "+esc(short(BY[c.stop].name)):""}</b>${esc(c.text)}</span></label>`).join("")}</div>`;}
+function bindChecks(pane){pane.querySelectorAll("[data-ck]").forEach(cb=>cb.onchange=()=>{const k=cb.dataset.ck;if(cb.checked)state.checks[k]=true;else delete state.checks[k];save();cb.closest(".ck").classList.toggle("done",cb.checked);pane.querySelectorAll(".ckcount").forEach(e=>{const L=routeChecks();e.textContent=`${L.filter(c=>state.checks[c.i]).length} / ${L.length}`;});});}
+function packList(){const ids=[...new Set([...state.route.map(r=>r.id),"rio"])];const items=new Map();PACK_RULES.forEach(r=>{const hits=ids.filter(id=>r.test(BY[id]));if(hits.length)r.items.forEach(it=>{if(!items.has(it))items.set(it,hits.slice(0,3).map(id=>short(BY[id].name)));});});return items;}
 /* ============ STOP ============ */
 function wxBlock(s,month,onRoute){
   const w=wxAt(s,month);if(!w)return "";
@@ -340,6 +355,7 @@ function renderStop(){
     <div class="anchor">${anc.length?ancS.map(a=>`<span class="st ${a.ok?"ok":"miss"}"><b>${esc(a.label||"Fixed date")}</b> · ${fmt(a.d)} · ${a.ok?"you're there ("+a.when+")":a.onRoute?"missed: you're there "+a.when:"stop is not on the route"} <button class="chip" data-rma="${esc(a.label)}|${a.date}" style="padding:1px 8px;margin-left:6px">remove</button></span>`).join(""):""}
      <label class="field">Date <input type="date" id="ancDate" min="${state.start}" max="2026-12-31"></label><label class="field">What <input type="text" id="ancLabel" placeholder="e.g. Machu Picchu ticket"></label><button class="btn ghost small" id="ancAdd">Pin date</button>
      <span class="small-note" style="flex-basis:100%">A pinned date must fall inside your stay here, otherwise the route shows a warning.</span></div>
+    ${checksFor(s).length?`<h3 class="sec">Checklist</h3>${checkHTML(checksFor(s))}`:""}
     ${near.length?`<h3 class="sec">Nearby, under 4 h</h3><div class="nearby">${near.map(x=>`<button data-go="${x.o.id}"><img src="${IMGM[x.o.id]||IMG[x.o.id]}" alt=""><span><b>${esc(short(x.o.name))}</b><small>${esc(x.o.tag)}</small></span><span class="h">${x.lg.h} h ${MODE_NAME[x.lg.m]||x.lg.m}</span></button>`).join("")}</div>`:""}
     <h3 class="sec">Where to sleep <span class="cnt">${s.hostels.length}</span><span style="flex:1"></span><button id="hAll">expand all</button></h3>
     <div class="hostels">${s.hostels.map(h=>hostelCard(h,s,openHostels.has(s.id+"|"+h.n))).join("")}</div>
@@ -354,6 +370,7 @@ function renderStop(){
   pane.querySelectorAll(".hostel").forEach(h=>{h.addEventListener("click",e=>{if(e.target.closest("a,button"))return;const k=s.id+"|"+h.dataset.h;if(openHostels.has(k))openHostels.delete(k);else openHostels.add(k);h.classList.toggle("open");});h.addEventListener("dblclick",e=>{if(e.target.closest("a,button"))return;pickHostel(s.id,h.dataset.h);});});
   pane.querySelectorAll("[data-pick]").forEach(b=>b.onclick=e=>{e.stopPropagation();pickHostel(s.id,b.dataset.pick);});
   pane.querySelector("#hAll").onclick=()=>{const all=pane.querySelectorAll(".hostel");const anyClosed=[...all].some(h=>!h.classList.contains("open"));all.forEach(h=>{h.classList.toggle("open",anyClosed);const k=s.id+"|"+h.dataset.h;if(anyClosed)openHostels.add(k);else openHostels.delete(k);});pane.querySelector("#hAll").textContent=anyClosed?"collapse all":"expand all";};
+  bindChecks(pane);
   pane.querySelector("#ancAdd").onclick=()=>{const d=pane.querySelector("#ancDate").value,l=pane.querySelector("#ancLabel").value.trim();if(!d){toast("Pick a date first");return;}snap();state.anchors.push({id:s.id,date:d,label:l||"Fixed date"});commit();toast("Date pinned",undoLast);};
   pane.querySelectorAll("[data-rma]").forEach(b=>b.onclick=()=>{const [l,d]=b.dataset.rma.split("|");snap();state.anchors=state.anchors.filter(a=>!(a.id===s.id&&a.date===d&&a.label===l));commit();toast("Pinned date removed",undoLast);});
   const gal=pane.querySelector("#gal");if(gal&&pics.length>1){const dots=pane.querySelectorAll(".dots i");gal.addEventListener("scroll",()=>{const i=Math.round(gal.scrollLeft/gal.clientWidth);dots.forEach((d,j)=>d.classList.toggle("on",j===i));});pane.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{gal.scrollBy({left:+b.dataset.g*gal.clientWidth,behavior:"smooth"});});}
@@ -371,6 +388,16 @@ function todayHTML(S){
   const s=BY[row.id];const next=S.rows[row.i+1];const lg=next?leg(row.id,next.id):null;const w=wxAt(s,now.getMonth()+1);
   const hs=[...s.hostels].sort((x,y)=>(state.picks[s.id]===y.n)-(state.picks[s.id]===x.n)).slice(0,2);
   return `<div class="today"><img src="${IMGM[s.id]||IMG[s.id]}" alt=""><div class="tb"><span class="e">${now<st?"Trip starts "+fmtS(st):"Today · "+fmtS(now)}</span><h3>${esc(s.name)}</h3><span class="l">${fmt(row.from)}${row.days>1?" → "+fmt(row.to):""}${w?` · ${w.hi}° ${w.label.toLowerCase()}`:""}</span>${next?`<span class="l"><b>Next:</b> ${esc(short(BY[next.id].name))} on ${fmtS(next.from)} · ${MODE_NAME[lg.m]||lg.m} ${lg.h>=24?Math.round(lg.h/24*10)/10+" d":lg.h+" h"} ~$${lg.u}</span>`:""}<div class="links">${hs.map(h=>`<a href="${mapq(h.n.replace(/\(.*?\)/g,"")+" "+short(s.name))}" target="_blank" rel="noopener">${esc(short(h.n))} ↗</a>`).join("")}<button data-done="${row.id}">${state.done.includes(row.id)?"Done ✓":"Mark done"}</button></div></div></div>`;
+}
+function altProfileHTML(S){
+  const pts=S.rows.map(r=>({id:r.id,alt:ALT[r.id]??0,days:r.days,from:r.from}));if(pts.length<2)return "";
+  const tot=pts.reduce((n,p)=>n+p.days,0);const W2=640,H2=90,pad=8;let x=0;const maxA=Math.max(4200,...pts.map(p=>p.alt));
+  const xs=[];pts.forEach(p=>{const w=p.days/tot*(W2-2*pad);xs.push({x0:pad+x,x1:pad+x+w,y:H2-pad-(p.alt/maxA)*(H2-2*pad),...p});x+=w;});
+  const path=xs.map((p,i)=>`${i?"L":"M"}${p.x0.toFixed(1)} ${p.y.toFixed(1)} L${p.x1.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+  const area=`${path} L${xs[xs.length-1].x1.toFixed(1)} ${H2-pad} L${pad} ${H2-pad} Z`;
+  const warns=[];for(let i=1;i<pts.length;i++){const prev=pts[i-1],cur=pts[i];if(cur.alt>=3000&&cur.alt-prev.alt>=1800){const nextLow=S.rows[i].days;warns.push(`${short(BY[cur.id].name)} (${cur.alt} m) straight from ${short(BY[prev.id].name)} (${prev.alt} m): ${cur.alt-prev.alt>=2500?"big jump":"jump"} — plan a slow first day${cur.alt>=3400?", no trekking before day 3":""}.`);}}
+  const labels=xs.filter(p=>p.alt>=2000).map(p=>`<text x="${((p.x0+p.x1)/2).toFixed(1)}" y="${(p.y-4).toFixed(1)}">${p.alt>=1000?(p.alt/1000).toFixed(1)+"k":p.alt}</text>`).join("");
+  return `<div class="altp"><div class="ah"><span>Altitude along the route</span><span class="mono">max ${Math.max(...pts.map(p=>p.alt)).toLocaleString()} m</span></div><svg viewBox="0 0 ${W2} ${H2}" preserveAspectRatio="none"><line x1="${pad}" x2="${W2-pad}" y1="${(H2-pad-(3000/maxA)*(H2-2*pad)).toFixed(1)}" y2="${(H2-pad-(3000/maxA)*(H2-2*pad)).toFixed(1)}" class="l3k"/><path d="${area}" class="area"/><path d="${path}" class="line"/>${labels}</svg>${warns.length?`<div class="note bad" style="margin-top:6px">${warns.map(esc).join("<br>")}</div>`:`<div class="small-note">No abrupt altitude jumps above 3,000 m. Good.</div>`}</div>`;
 }
 function timelineHTML(S){
   const avail=availDays();const panelW=Math.max(320,(document.getElementById("pane").clientWidth||400)-56);
@@ -454,6 +481,7 @@ function renderRoute(){
     <div class="fact"><small>Total est.</small><b>~$${S.total.toLocaleString()}</b></div>
    </div>
    ${timelineHTML(S)}
+   ${altProfileHTML(S)}
    <details class="pre cal-d" ${state.calOpen?"open":""}><summary>Calendar view</summary>${calendarHTML(S)}</details>
    <div class="small-note">${state.route.length+1} stops · ${S.ccs.length} countries · ${S.flights} flights · ${Math.round(S.busH)} h of buses and boats · ${S.km.toLocaleString()} km.</div>
    ${S.missed.length?`<div class="note bad"><b>Pinned dates missed:</b> ${S.missed.map(a=>`${esc(a.label)} (${esc(short(BY[a.id].name))}, ${fmtS(a.d)}) — ${a.onRoute?"you're there "+a.when:"stop not on route"}`).join("; ")}.</div>`:""}
@@ -461,7 +489,8 @@ function renderRoute(){
    <div class="rlist" id="rlist">`;
   S.rows.forEach((r,i)=>{
     const s=BY[r.id];
-    if(r.leg){const lg=r.leg;html+=`<div class="leg ${lg.est?"warn":""}"><div class="ln"><i></i></div><div class="txt"><span class="mode">${MODE_ICON[lg.m]||""}${MODE_NAME[lg.m]||lg.m}</span><span class="mono">${lg.h>=24?Math.round(lg.h/24*10)/10+" d":lg.h+" h"}</span><span class="mono">${lg.u?"~$"+lg.u:"incl."}</span>${lg.d?`<span class="mono">+${lg.d} travel day${lg.d>1?"s":""}</span>`:""}${lg.src?`<span class="src">researched</span>`:lg.est?`<span class="src" style="color:var(--warn);border-color:var(--warn)">estimate</span>`:""}${lg.n?`<span class="nt">${esc(lg.n)}</span>`:""}</div></div>`;}
+    if(r.leg){const lg=r.leg;const prevId=S.rows[i-1].id;const opts=legOptions(prevId,r.id);const sw=opts.length>1?`<span class="altsw">${opts.map(o=>`<button data-lm="${prevId}>${r.id}|${o.m}" class="${o.m===lg.m?"on":""}" title="${esc(o.n)}">${MODE_NAME[o.m]||o.m} · ${o.h>=24?Math.round(o.h/24*10)/10+" d":o.h+" h"} · ~$${o.u}${o.d?" · +"+o.d+"d":""}</button>`).join("")}</span>`:"";
+    html+=`<div class="leg ${lg.est?"warn":""}"><div class="ln"><i></i></div><div class="txt"><span class="mode">${MODE_ICON[lg.m]||""}${MODE_NAME[lg.m]||lg.m}</span><span class="mono">${lg.h>=24?Math.round(lg.h/24*10)/10+" d":lg.h+" h"}</span><span class="mono">${lg.u?"~$"+lg.u:"incl."}</span>${lg.d?`<span class="mono">+${lg.d} travel day${lg.d>1?"s":""}</span>`:""}${lg.src?`<span class="src">researched</span>`:lg.est?`<span class="src" style="color:var(--warn);border-color:var(--warn)">estimate</span>`:""}${lg.n?`<span class="nt">${esc(lg.n)}</span>`:""}${sw}</div></div>`;}
     if(r.leg&&r.leg.m==="flight"&&!r.locked||(r.leg&&r.leg.m==="flight"&&r.locked)){const alt=overlandAlt(S.rows[i-1].id,r.id);if(alt){html+=`<div class="leg"><div class="ln"></div><div class="overland"><b>Overland instead of flying</b><span class="path">${esc(short(BY[S.rows[i-1].id].name))} → ${alt.mids.map(m=>`<i>${esc(short(BY[m].name))}</i>`).join(" → ")} → ${esc(short(s.name))} · ${alt.h} h of buses and boats · ~$${alt.u}${alt.d?" · +"+alt.d+" travel day"+(alt.d>1?"s":""):""}</span><button data-ovl="${i}" data-mids="${alt.mids.join(",")}">Take the bus via ${alt.mids.map(m=>short(BY[m].name)).join(", ")}</button></div></div>`;}}
     const ins=i===0?-1:i-1;
     html+=`<div class="rins"><button data-ins="${ins}" class="${state.insertAt===ins?"armed":""}" title="Insert a stop here">+</button><span>${state.insertAt===ins?"choose a stop in Explore":""}</span></div>`;
@@ -475,11 +504,15 @@ function renderRoute(){
   });
   const savedHTML=`<div class="saved"><h4>My routes <span class="row"><button class="btn ghost small" id="newR2">New route</button><button class="btn ghost small" id="saveR2">${state.saved.find(x=>x.id===state.activeId)?"Update saved":"Save current…"}</button></span></h4>${state.saved.length?state.saved.map(sv=>{const st=statsOf(sv.route);const inCmp=state.cmpSaved.includes(sv.id);return `<div class="srow${inCmp?" cmp":""}${sv.id===state.activeId?" active":""}"><div><b>${esc(sv.name)}${sv.id===state.activeId?' <span class="tagactive">editing</span>':""}</b><small>${st.stops} stops · ${st.ccs} countries · ${st.rio} d in Rio · ~$${st.total.toLocaleString()}</small></div><div class="b"><button data-ld="${sv.id}">Load</button><button data-sh="${sv.id}">Share link</button><button data-cp="${sv.id}" class="${inCmp?"on":""}">Compare</button><button data-rn="${sv.id}">Rename</button><button data-dl="${sv.id}">Delete</button></div></div>`;}).join(""):`<span class="small-note">Nothing saved yet. Save the current route to keep versions and share each one with its own link.</span>`}${state.cmpSaved.length===2?(()=>{const A=state.saved.find(x=>x.id===state.cmpSaved[0]),B=state.saved.find(x=>x.id===state.cmpSaved[1]);if(!A||!B)return "";const a=statsOf(A.route),b=statsOf(B.route);const rows=[["Stops",a.stops,b.stops],["Countries",a.ccs,b.ccs],["Days in Rio",a.rio,b.rio],["Flights",a.flights,b.flights],["Bus/boat hours",a.busH,b.busH],["Transport $",a.transport,b.transport],["Beds $",a.hostel,b.hostel],["Total est. $",a.total,b.total]];return `<div class="compare"><table><tr><th></th><th>${esc(A.name)}</th><th>${esc(B.name)}</th></tr>${rows.map(([l,x,y])=>`<tr><td>${l}</td><td>${x.toLocaleString()}</td><td>${y.toLocaleString()}</td></tr>`).join("")}</table></div>`;})():""}</div>`;
   html+=`</div>
+   <details class="pre" ${state.ckOpen?"open":""} id="ckD"><summary>Checklist for this route <span class="ckcount mono" style="color:var(--muted);font-weight:400">${(()=>{const L=routeChecks();return L.filter(c=>state.checks[c.i]).length+" / "+L.length;})()}</span></summary><div style="padding:0 12px 12px">${checkHTML(routeChecks().sort((x,y)=>(x.when>y.when)-(x.when<y.when)))}</div></details>
+   <details class="pre" ${state.pkOpen?"open":""} id="pkD"><summary>Packing list from your route</summary><div style="padding:0 12px 12px"><div class="checks">${[...packList()].map(([it,why])=>`<label class="ck${state.packDone[it]?" done":""}"><input type="checkbox" data-pk="${esc(it)}" ${state.packDone[it]?"checked":""}><span><b>${esc(why.join(", "))}</b>${esc(it)}</span></label>`).join("")||"<span class='small-note'>Add stops to see what to pack.</span>"}</div></div></details>
    <details class="pre"><summary>Start from a preset route</summary><div class="presets" id="presetsIn"></div></details>
    ${savedHTML}
    <p class="small-note">Legs marked “researched” were checked in Sep 2026 against Rome2rio, Busbud and airline fares; “estimate” legs are distance-based guesses. “Send to phone” copies a link that opens this exact route on any device.</p>
   </div>`;
-  pane.innerHTML=html;bindSettings(pane);bindTimeline(pane);pane.querySelector("#dismissShared")?.addEventListener("click",()=>{delete state.sharedName;save();renderRoute();});pane.querySelector(".cal-d")?.addEventListener("toggle",e=>{state.calOpen=e.target.open;save();});
+  pane.innerHTML=html;bindSettings(pane);bindTimeline(pane);pane.querySelector("#dismissShared")?.addEventListener("click",()=>{delete state.sharedName;save();renderRoute();});
+  bindChecks(pane);pane.querySelector("#ckD")?.addEventListener("toggle",e=>{state.ckOpen=e.target.open;save();});pane.querySelector("#pkD")?.addEventListener("toggle",e=>{state.pkOpen=e.target.open;save();});
+  pane.querySelectorAll("[data-pk]").forEach(cb=>cb.onchange=()=>{if(cb.checked)state.packDone[cb.dataset.pk]=true;else delete state.packDone[cb.dataset.pk];save();cb.closest(".ck").classList.toggle("done",cb.checked);});pane.querySelector(".cal-d")?.addEventListener("toggle",e=>{state.calOpen=e.target.open;save();});
   pane.querySelector("[data-done]")?.addEventListener("click",e=>{const id=e.target.dataset.done;const i=state.done.indexOf(id);if(i>=0)state.done.splice(i,1);else state.done.push(id);commit();});
   pane.querySelectorAll(".rstop").forEach(row=>{
     const i=+row.dataset.i;
@@ -495,6 +528,7 @@ function renderRoute(){
       row.addEventListener("drop",e=>{e.preventDefault();row.classList.remove("over");const from=+e.dataTransfer.getData("text/plain");if(isNaN(from)||from===i||i>=state.route.length)return;snap();const [it]=state.route.splice(from,1);state.route.splice(i,0,it);commit();toast("Reordered",undoLast);});
     }
   });
+  pane.querySelectorAll("[data-lm]").forEach(b=>b.onclick=()=>{const [k,m]=b.dataset.lm.split("|");const base=baseLeg(...k.split(">"));if(m===base.m)delete state.legMode[k];else state.legMode[k]=m;commit();toast(`${MODE_NAME[m]} chosen for this leg`);});
   pane.querySelectorAll("[data-ovl]").forEach(b=>b.onclick=()=>{const at=+b.dataset.ovl;const mids=b.dataset.mids.split(",");snap();const add=mids.map(id=>({id,days:Math.min(2,BY[id].days)}));state.route.splice(Math.min(at,state.route.length),0,...add);commit();toast(`${mids.length} stop${mids.length>1?"s":""} inserted for the overland route`,undoLast);});
   pane.querySelectorAll("[data-ins]").forEach(b=>b.onclick=()=>{const v=+b.dataset.ins;state.insertAt=state.insertAt===v?null:v;render();if(state.insertAt!==null)setTab("explore");});
   renderPresetsInto(pane.querySelector("#presetsIn"));
