@@ -65,10 +65,10 @@ h1,h2,h3{margin:0;font-family:var(--display);text-wrap:balance}
 .brand .mark{width:38px;height:38px;border-radius:12px;background:linear-gradient(145deg,var(--accent),var(--accent2));display:grid;place-items:center;box-shadow:0 6px 18px var(--accent-glow)}
 .brand .mark svg{width:22px;height:22px;stroke:var(--accent-ink);fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .brand h1{font-size:21px;font-weight:800;letter-spacing:-.015em;line-height:1}
-.brand .sub{color:var(--muted);font-size:12px;margin-top:3px}
+.brand .sub{color:var(--muted);font-size:12px;margin-top:3px;white-space:nowrap}
 .brand .sub b{color:var(--ink2);font-weight:600}
-.meter{display:grid;gap:4px;min-width:300px;max-width:560px;justify-self:center;width:100%}
-.meter-head{display:flex;justify-content:space-between;align-items:baseline;font-size:11.5px;color:var(--muted);letter-spacing:.02em}
+.meter{display:grid;gap:4px;min-width:220px;max-width:520px;justify-self:center;width:100%}
+.meter-head{display:flex;justify-content:space-between;align-items:baseline;gap:14px;font-size:11.5px;color:var(--muted);letter-spacing:.02em;white-space:nowrap}
 .meter-head strong{color:var(--ink);font-family:var(--mono);font-size:13px;font-weight:600}
 .meter-bar{position:relative;height:12px;border-radius:6px;background:var(--bg2);overflow:hidden;display:flex;box-shadow:inset 0 1px 2px rgba(0,0,0,.25)}
 .meter-bar span{height:100%;transition:width .4s cubic-bezier(.2,.8,.2,1)}
@@ -90,7 +90,23 @@ h1,h2,h3{margin:0;font-family:var(--display);text-wrap:balance}
 .main{position:absolute;inset:0}
 .left{position:absolute;inset:0}
 .filters{position:absolute;left:14px;top:var(--hh);z-index:5;display:flex;gap:5px;flex-wrap:wrap;align-items:center;max-width:calc(100% - var(--pw) - 56px)}
-.filters .chip{padding:4px 10px;font-size:11.5px}
+.filters .chip{padding:6px 12px;font-size:12px}
+.dd{position:relative}
+.dd .car{font-size:10px;color:var(--muted);margin-left:2px}
+.dd .menu{display:none;position:absolute;left:0;top:calc(100% + 6px);min-width:210px;background:var(--glass2);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--glass-line);border-radius:14px;padding:6px;box-shadow:var(--shadow);z-index:20}
+.dd.open .menu{display:grid;gap:1px}
+.dd.open .chip{border-color:var(--accent)}
+.mi{display:grid;grid-template-columns:12px 1fr auto;gap:9px;align-items:center;padding:7px 9px;border-radius:9px;font-size:12.5px;color:var(--ink2);text-align:left}
+.mi:hover{background:var(--accent-soft);color:var(--ink)}
+.mi.on{background:var(--ink);color:var(--bg)}
+.mi i{width:10px;height:10px;border-radius:3px;border:1px solid var(--border);display:block}
+.mi i.none{border-style:dashed;background:transparent}
+.mi small{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+.mi.on small{color:var(--bg);opacity:.7}
+.seg{display:inline-flex;border:1px solid var(--glass-line);border-radius:999px;background:var(--glass2);backdrop-filter:blur(12px);padding:3px;gap:2px;box-shadow:var(--shadow-s)}
+.seg button{padding:3px 9px;border-radius:999px;font-family:var(--mono);font-size:11px;color:var(--muted);transition:all .15s}
+.seg button:hover{color:var(--ink)}
+.seg button.on{background:var(--ink);color:var(--bg)}
 .filters .sep{width:1px;height:18px;background:var(--line);margin:0 4px}
 .chip{border:1px solid var(--glass-line);border-radius:999px;padding:5px 12px;font-size:12px;font-weight:600;color:var(--ink2);background:var(--glass2);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:var(--shadow-s);transition:all .15s;display:inline-flex;align-items:center;gap:6px}
 .chip:hover{border-color:var(--accent);color:var(--ink);transform:translateY(-1px)}
@@ -442,7 +458,7 @@ details.pre .presets{padding:0 12px 12px}
       <div><h1>Andes to Copacabana</h1><div class="sub">Lima <b>Fri 11 Sep</b> → Rio for New Year's Eve · <span id="subline">click a stop to begin</span></div></div>
     </div>
     <div class="meter">
-      <div class="meter-head"><span>Days planned vs. available</span><strong id="meterTxt">0 / 112</strong></div>
+      <div class="meter-head"><span>Days planned</span><strong id="meterTxt">0 / 112</strong></div>
       <div class="meter-bar" id="meterBar"></div>
       <div class="meter-legend" id="meterLegend"></div>
     </div>
@@ -2310,17 +2326,24 @@ function tagMatch(s,t){if(t==="ALL")return true;if(t==="top")return s.tier===1;i
 function visible(s){return (state.filterCC==="ALL"||s.cc===state.filterCC)&&tagMatch(s,state.filterTag);}
 function renderFilters(){
   const f=document.getElementById("filters");f.innerHTML="";
-  const mk=(txt,on,fn,sw)=>{const b=document.createElement("button");b.className="chip"+(on?" on":"");b.innerHTML=(sw?`<i style="background:var(--${sw})"></i>`:"")+txt;b.onclick=fn;f.append(b);return b;};
-  mk("All countries",state.filterCC==="ALL",()=>{state.filterCC="ALL";render();});
-  for(const cc of CC_ORDER) mk(COUNTRY[cc],state.filterCC===cc,()=>{state.filterCC=state.filterCC===cc?"ALL":cc;render();},cc.toLowerCase());
+  const cnt=cc=>STOPS.filter(s=>s.cc===cc).length;
+  const mkChip=(html,on,fn,cls)=>{const b=document.createElement("button");b.className="chip"+(on?" on":"")+(cls?" "+cls:"");b.innerHTML=html;b.onclick=fn;return b;};
+  const dd=(label,items,cur,onPick)=>{
+    const w=document.createElement("div");w.className="dd";
+    const b=mkChip(label+' <span class="car">▾</span>',cur!=="ALL",()=>{const open=w.classList.contains("open");document.querySelectorAll(".dd.open").forEach(x=>x.classList.remove("open"));w.classList.toggle("open",!open);},"dd-btn");
+    const m=document.createElement("div");m.className="menu";
+    items.forEach(([v,txt,sw,n])=>{const it=document.createElement("button");it.className="mi"+(cur===v?" on":"");it.innerHTML=(sw?`<i style="background:var(--${sw})"></i>`:'<i class="none"></i>')+`<span>${txt}</span>`+(n!==undefined?`<small>${n}</small>`:"");it.onclick=()=>{onPick(v);};m.append(it);});
+    w.append(b,m);return w;
+  };
+  f.append(dd(state.filterCC==="ALL"?"All countries":COUNTRY[state.filterCC],[["ALL","All countries",null,STOPS.length],...CC_ORDER.map(cc=>[cc,COUNTRY[cc],cc.toLowerCase(),cnt(cc)])],state.filterCC,v=>{state.filterCC=v;render();if(v!=="ALL")fitCountry(v);}));
+  const tagLabel=Object.fromEntries(TAGS);
+  f.append(dd(state.filterTag==="ALL"?"All types":tagLabel[state.filterTag],TAGS.map(([t,l])=>[t,l,null,STOPS.filter(s=>tagMatch(s,t)).length]),state.filterTag,v=>{state.filterTag=v;render();}));
   const sep=document.createElement("span");sep.className="sep";f.append(sep);
-  for(const [t,l] of TAGS) mk(l,state.filterTag===t,()=>{state.filterTag=state.filterTag===t?"ALL":t;render();});
-  const sep2=document.createElement("span");sep2.className="sep";f.append(sep2);
-  mk("Labels",state.labels,()=>{state.labels=!state.labels;save();render();});
-  const sep3=document.createElement("span");sep3.className="sep";f.append(sep3);
-  const wb=mk("Weather",state.wx,()=>{state.wx=!state.wx;save();render();});wb.classList.add("wx");
-  if(state.wx){for(const m of WXM){const b=mk(WXN[m],state.wxMonth===m,()=>{state.wxMonth=m;save();render();});b.classList.add("mo");}}
+  f.append(mkChip("Labels",state.labels,()=>{state.labels=!state.labels;save();render();}));
+  f.append(mkChip("Weather",state.wx,()=>{state.wx=!state.wx;save();render();},"wx"));
+  if(state.wx){const seg=document.createElement("div");seg.className="seg";for(const m of WXM){const b=document.createElement("button");b.className=state.wxMonth===m?"on":"";b.textContent=WXN[m];b.onclick=()=>{state.wxMonth=m;save();render();};seg.append(b);}f.append(seg);}
 }
+document.addEventListener("click",e=>{if(!e.target.closest(".dd"))document.querySelectorAll(".dd.open").forEach(x=>x.classList.remove("open"));});
 
 /* ============ EXPLORE TAB ============ */
 let openCC=null;
