@@ -96,11 +96,15 @@ h1,h2,h3{margin:0;font-family:var(--display);text-wrap:balance}
 .dd .menu{display:none;position:absolute;left:0;top:calc(100% + 6px);min-width:210px;background:var(--glass2);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--glass-line);border-radius:14px;padding:6px;box-shadow:var(--shadow);z-index:20}
 .dd.open .menu{display:grid;gap:1px}
 .dd.open .chip{border-color:var(--accent)}
-.mi{display:grid;grid-template-columns:12px 1fr auto;gap:9px;align-items:center;padding:7px 9px;border-radius:9px;font-size:12.5px;color:var(--ink2);text-align:left}
+.mi{display:grid;grid-template-columns:14px 1fr auto;gap:9px;align-items:center;padding:7px 9px;border-radius:9px;font-size:12.5px;color:var(--ink2);text-align:left}
 .mi:hover{background:var(--accent-soft);color:var(--ink)}
 .mi.on{background:var(--ink);color:var(--bg)}
 .mi i{width:10px;height:10px;border-radius:3px;border:1px solid var(--border);display:block}
 .mi i.none{border-style:dashed;background:transparent}
+.mi i.box{width:14px;height:14px;border-radius:4px;display:grid;place-items:center;font-size:10px;font-weight:800;color:#fff;text-shadow:0 0 2px rgba(0,0,0,.6)}
+.mi i.box.plain{background:var(--surface2);color:var(--accent)}
+.mi.chk.on{background:var(--accent-soft);color:var(--ink)}
+.mi.chk.on i.box.plain{background:var(--accent);color:var(--accent-ink);text-shadow:none}
 .mi small{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
 .mi.on small{color:var(--bg);opacity:.7}
 .seg{display:inline-flex;border:1px solid var(--glass-line);border-radius:999px;background:var(--glass2);backdrop-filter:blur(12px);padding:3px;gap:2px;box-shadow:var(--shadow-s)}
@@ -2186,13 +2190,13 @@ const gq=q=>"https://www.google.com/search?q="+encodeURIComponent(q);
 const mapq=q=>"https://www.google.com/maps/search/"+encodeURIComponent(q);
 
 /* ============ STATE ============ */
-let state={start:"2026-09-11",daily:40,route:[],sel:"lima",filterCC:"ALL",filterTag:"ALL",labels:false,insertAt:null,slots:{A:null,B:null},wx:false,wxMonth:10};
-try{const s=JSON.parse(localStorage.getItem("andes2copa.v2"));if(s&&Array.isArray(s.route))state={...state,...s,insertAt:null};}catch(e){}
+let state={start:"2026-09-11",daily:40,route:[],sel:"lima",filterCCs:[],filterTags:[],ddOpen:null,labels:false,insertAt:null,slots:{A:null,B:null},wx:false,wxMonth:10};
+try{const s=JSON.parse(localStorage.getItem("andes2copa.v2"));if(s&&Array.isArray(s.route)){delete s.filterCC;delete s.filterTag;state={...state,...s,insertAt:null,ddOpen:null};if(!Array.isArray(state.filterCCs))state.filterCCs=[];if(!Array.isArray(state.filterTags))state.filterTags=[];}}catch(e){}
 // route in URL (?r=) wins over storage
 (function(){try{const p=new URLSearchParams(location.search).get("r");if(!p)return;const dec=decodeRoute(p);if(dec){state.route=dec.route;if(dec.start)state.start=dec.start;if(dec.daily)state.daily=dec.daily;}}catch(e){}})();
 function encodeRoute(){return btoa(unescape(encodeURIComponent(JSON.stringify({s:state.start,b:state.daily,r:state.route.map(r=>[r.id,r.days])})))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");}
 function decodeRoute(p){try{const o=JSON.parse(decodeURIComponent(escape(atob(p.replace(/-/g,"+").replace(/_/g,"/")))));return {route:o.r.filter(([id])=>BY[id]).map(([id,days])=>({id,days:+days||BY[id].days})),start:o.s,daily:o.b};}catch(e){return null;}}
-function save(){try{localStorage.setItem("andes2copa.v2",JSON.stringify({start:state.start,daily:state.daily,route:state.route,sel:state.sel,labels:state.labels,slots:state.slots,wx:state.wx,wxMonth:state.wxMonth}));}catch(e){}}
+function save(){try{localStorage.setItem("andes2copa.v2",JSON.stringify({start:state.start,daily:state.daily,route:state.route,sel:state.sel,labels:state.labels,slots:state.slots,wx:state.wx,wxMonth:state.wxMonth,filterCCs:state.filterCCs,filterTags:state.filterTags}));}catch(e){}}
 const startDate=()=>{const [y,m,d]=state.start.split("-").map(Number);return new Date(y,m-1,d);};
 const availDays=()=>Math.round((NYE-startDate())/864e5)+1;
 
@@ -2232,7 +2236,7 @@ for(const [n,d] of Object.entries(GEO.paths)){
   const cc=GEO_CC[n]||"";
   if(cc)gGlow.append(el("path",{d,class:"coast-glow"}));
   const p=el("path",{d,class:"country "+cc});p.dataset.name=n;p.dataset.cc=cc;gCountries.append(p);
-  if(cc){p.addEventListener("click",()=>{state.filterCC=state.filterCC===cc?"ALL":cc;render();});p.style.cursor="pointer";}
+  if(cc){p.addEventListener("click",()=>{toggleCC(cc);});p.style.cursor="pointer";}
 }
 const CLAB={PE:[-75.2,-10.8],EC:[-78.8,-1.9],CO:[-73.2,3.2],BR:[-52,-11],BO:[-64.8,-17.5],GY:[-58.9,5.1],SR:[-55.9,4.3],GF:[-53.2,3.6]};
 for(const [cc,[lo,la]] of Object.entries(CLAB)){const t=el("text",{x:px(lo),y:py(la),class:"clabel","text-anchor":"middle"});t.textContent=COUNTRY[cc];gLabels.append(t);}
@@ -2294,7 +2298,7 @@ function drawRoute(){
     const vis=visible(s)||on;g.classList.toggle("hidden",false);g.classList.toggle("faded",!vis);
     g.classList.remove("wx-g","wx-a","wx-r");if(state.wx){const w=wxAt(s,monthFor(s.id,S));if(w)g.classList.add("wx-"+w.r);}});
   svg.classList.toggle("wx",!!state.wx);document.querySelector(".legend").classList.toggle("wx",!!state.wx);
-  gCountries.querySelectorAll(".country").forEach(p=>{p.classList.toggle("dim",state.filterCC!=="ALL"&&p.dataset.cc!==state.filterCC);p.classList.toggle("hot",state.filterCC!=="ALL"&&p.dataset.cc===state.filterCC);});
+  gCountries.querySelectorAll(".country").forEach(p=>{p.classList.toggle("dim",state.filterCCs.length>0&&!state.filterCCs.includes(p.dataset.cc));p.classList.toggle("hot",state.filterCCs.includes(p.dataset.cc));});
 }
 function zoomAt(f,cx,cy){const rr=svg.getBoundingClientRect();const nw=Math.min(Math.max(vb.w/f,W/10),W*1.4),nh=nw*rr.height/rr.width;vb.x=cx-(cx-vb.x)*nw/vb.w;vb.y=cy-(cy-vb.y)*nh/vb.h;vb.w=nw;vb.h=nh;setVB();}
 function svgPoint(e){const pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;return pt.matrixTransform(svg.getScreenCTM().inverse());}
@@ -2327,27 +2331,33 @@ function syncJH(){const t=document.querySelector(".top"),app=document.querySelec
 /* ============ FILTERS ============ */
 const TAGS=[["ALL","All"],["top","Top highlights"],["major","Highlights"],["beach","Beach"],["party","Party"],["mountain","Mountains"],["jungle","Jungle"],["city","Cities"],["ruins","Ruins"],["off-beat","Off-beat"]];
 function tagMatch(s,t){if(t==="ALL")return true;if(t==="top")return s.tier===1;if(t==="major")return s.tier<=2;if(t==="mountain")return s.kind==="mountain"||s.tags.includes("trekking")||s.tags.includes("hiking");if(t==="jungle")return s.kind==="jungle"||s.tags.includes("jungle");if(t==="city")return s.kind==="city";if(t==="ruins")return s.kind==="ruins"||s.tags.includes("ruins");return s.tags.includes(t)||s.kind===t;}
-function visible(s){return (state.filterCC==="ALL"||s.cc===state.filterCC)&&tagMatch(s,state.filterTag);}
+function visible(s){return (!state.filterCCs.length||state.filterCCs.includes(s.cc))&&(!state.filterTags.length||state.filterTags.some(t=>tagMatch(s,t)));}
+function toggleCC(cc){const i=state.filterCCs.indexOf(cc);if(i>=0)state.filterCCs.splice(i,1);else state.filterCCs.push(cc);render();if(state.filterCCs.length===1)fitCountry(state.filterCCs[0]);}
+function toggleTag(t){const i=state.filterTags.indexOf(t);if(i>=0)state.filterTags.splice(i,1);else state.filterTags.push(t);render();}
 function renderFilters(){
   const f=document.getElementById("filters");f.innerHTML="";
   const cnt=cc=>STOPS.filter(s=>s.cc===cc).length;
   const mkChip=(html,on,fn,cls)=>{const b=document.createElement("button");b.className="chip"+(on?" on":"")+(cls?" "+cls:"");b.innerHTML=html;b.onclick=fn;return b;};
-  const dd=(label,items,cur,onPick)=>{
-    const w=document.createElement("div");w.className="dd";
-    const b=mkChip(label+' <span class="car">▾</span>',cur!=="ALL",()=>{const open=w.classList.contains("open");document.querySelectorAll(".dd.open").forEach(x=>x.classList.remove("open"));w.classList.toggle("open",!open);},"dd-btn");
+  const dd=(key,label,items,sel,onToggle,onClear)=>{
+    const w=document.createElement("div");w.className="dd"+(state.ddOpen===key?" open":"");
+    const b=mkChip(label+' <span class="car">▾</span>',sel.length>0,()=>{state.ddOpen=state.ddOpen===key?null:key;document.querySelectorAll(".dd").forEach(x=>x.classList.toggle("open",x.dataset.key===state.ddOpen));},"dd-btn");
+    w.dataset.key=key;
     const m=document.createElement("div");m.className="menu";
-    items.forEach(([v,txt,sw,n])=>{const it=document.createElement("button");it.className="mi"+(cur===v?" on":"");it.innerHTML=(sw?`<i style="background:var(--${sw})"></i>`:'<i class="none"></i>')+`<span>${txt}</span>`+(n!==undefined?`<small>${n}</small>`:"");it.onclick=()=>{onPick(v);};m.append(it);});
+    const all=document.createElement("button");all.className="mi"+(sel.length?"":" on");all.innerHTML=`<i class="none"></i><span>All</span><small>${STOPS.length}</small>`;all.onclick=()=>{onClear();};m.append(all);
+    items.forEach(([v,txt,sw,n])=>{const on=sel.includes(v);const it=document.createElement("button");it.className="mi chk"+(on?" on":"");it.innerHTML=`<i class="box${sw?"":" plain"}"${sw?` style="background:var(--${sw})"`:""}>${on?"✓":""}</i><span>${txt}</span><small>${n}</small>`;it.onclick=()=>{onToggle(v);};m.append(it);});
     w.append(b,m);return w;
   };
-  f.append(dd(state.filterCC==="ALL"?"All countries":COUNTRY[state.filterCC],[["ALL","All countries",null,STOPS.length],...CC_ORDER.map(cc=>[cc,COUNTRY[cc],cc.toLowerCase(),cnt(cc)])],state.filterCC,v=>{state.filterCC=v;render();if(v!=="ALL")fitCountry(v);}));
+  const ccLabel=!state.filterCCs.length?"All countries":state.filterCCs.length===1?COUNTRY[state.filterCCs[0]]:state.filterCCs.length<=2?state.filterCCs.map(c=>COUNTRY[c]).join(", "):state.filterCCs.length+" countries";
+  f.append(dd("cc",ccLabel,CC_ORDER.map(cc=>[cc,COUNTRY[cc],cc.toLowerCase(),cnt(cc)]),state.filterCCs,toggleCC,()=>{state.filterCCs=[];render();}));
   const tagLabel=Object.fromEntries(TAGS);
-  f.append(dd(state.filterTag==="ALL"?"All types":tagLabel[state.filterTag],TAGS.map(([t,l])=>[t,l,null,STOPS.filter(s=>tagMatch(s,t)).length]),state.filterTag,v=>{state.filterTag=v;render();}));
+  const tgLabel=!state.filterTags.length?"All types":state.filterTags.length<=2?state.filterTags.map(t=>tagLabel[t]).join(", "):state.filterTags.length+" types";
+  f.append(dd("tag",tgLabel,TAGS.filter(([t])=>t!=="ALL").map(([t,l])=>[t,l,null,STOPS.filter(s=>tagMatch(s,t)).length]),state.filterTags,toggleTag,()=>{state.filterTags=[];render();}));
   const sep=document.createElement("span");sep.className="sep";f.append(sep);
   f.append(mkChip("Labels",state.labels,()=>{state.labels=!state.labels;save();render();}));
   f.append(mkChip("Weather",state.wx,()=>{state.wx=!state.wx;save();render();},"wx"));
   if(state.wx){const seg=document.createElement("div");seg.className="seg";for(const m of WXM){const b=document.createElement("button");b.className=state.wxMonth===m?"on":"";b.textContent=WXN[m];b.onclick=()=>{state.wxMonth=m;save();render();};seg.append(b);}f.append(seg);}
 }
-document.addEventListener("click",e=>{if(!e.target.closest(".dd"))document.querySelectorAll(".dd.open").forEach(x=>x.classList.remove("open"));});
+document.addEventListener("click",e=>{if(!e.target.closest(".dd")){state.ddOpen=null;document.querySelectorAll(".dd.open").forEach(x=>x.classList.remove("open"));}});
 
 /* ============ EXPLORE TAB ============ */
 let openCC=null;
@@ -2365,7 +2375,7 @@ function renderExplore(){
   const wrap=document.createElement("div");wrap.className="explore";
   if(state.insertAt!==null){const ban=document.createElement("div");ban.className="insban";ban.innerHTML=`<span>Pick a stop to insert after <b>${esc(state.insertAt===-1?"the start":short(BY[state.route[state.insertAt].id].name))}</b></span><button class="chip" id="cancelIns">Cancel</button>`;ban.querySelector("#cancelIns").onclick=()=>{state.insertAt=null;render();};wrap.append(ban);}
   const intro=document.createElement("div");intro.className="intro";intro.innerHTML=`<p>${STOPS.filter(visible).length} stops match the filters above the map. <b>★ Top</b> are the trip-defining places, <b>Highlight</b> the strong ones. Click a country header for money, visa and safety.</p>`;wrap.append(intro);
-  const ccs=state.filterCC==="ALL"?CC_ORDER:[state.filterCC];
+  const ccs=state.filterCCs.length?CC_ORDER.filter(c=>state.filterCCs.includes(c)):CC_ORDER;
   const days={};S.rows.forEach(r=>{days[BY[r.id].cc]=(days[BY[r.id].cc]||0)+r.days;});
   ccs.forEach(cc=>{
     const ss=STOPS.filter(s=>s.cc===cc&&visible(s)).sort((x,y)=>x.tier-y.tier);if(!ss.length)return;
