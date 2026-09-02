@@ -3032,7 +3032,7 @@ const PRESETS_SOUTH=[
 /* ============ DATA WIRING ============ */
 STOPS_EXTRA.forEach(s=>STOPS.push(s));STOPS_SOUTH.forEach(s=>STOPS.push(s));TIER1.push(...TIER1_SOUTH);Object.assign(COUNTRIES,COUNTRIES_SOUTH);Object.assign(CLIM,CLIM_SOUTH);Object.assign(LEGS,LEGS_SOUTH);PRESETS.push(...PRESETS_SOUTH);Object.assign(COUNTRY,{CL:"Chile",AR:"Argentina",PY:"Paraguay"});Object.assign(GEO_CC,{"Chile":"CL","Argentina":"AR","Paraguay":"PY"});CC_ORDER.push("CL","AR","PY");
 STOPS.forEach(s=>{s.tier=TIER1.includes(s.id)?1:(s.major?2:3);if(s.tier===1)s.major=true;s.clim=CLIM[s.id]||null;
-  const fx=HOSTEL_FIX[s.id]||[];fx.forEach(f=>{const h=s.hostels.find(h=>h.n===f.match);if(h)Object.assign(h,f.set);});});
+  const fx=HOSTEL_FIX[s.id]||[];const norm=x=>x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"");fx.forEach(f=>{const h=s.hostels.find(h=>h.n===f.match)||s.hostels.find(h=>norm(h.n)===norm(f.match))||s.hostels.find(h=>norm(h.n).includes(norm(f.match).slice(0,10)));if(h)Object.assign(h,f.set);});});
 Object.entries(LEG_FIX).forEach(([k,v])=>{LEGS[k]=v;});
 Object.entries(EXTRA_HOSTELS).forEach(([id,hs])=>{const s=STOPS.find(x=>x.id===id);if(s)hs.forEach(h=>{if(!s.hostels.some(x=>x.n===h.n))s.hostels.push(h);});});
 const BY=Object.fromEntries(STOPS.map(s=>[s.id,s]));
@@ -3448,7 +3448,7 @@ function autoSort(){
   toast(`Re-ordered: ${(before.km-after.km).toLocaleString()} km less, ${before.flights-after.flights>=0?before.flights-after.flights+" fewer flights":"same flights"}`,undoLast);
 }
 function overlandAlt(aId,bId){
-  const ok=lg=>lg.m!=="flight"&&!/\b(fly|flight|flights|airport|LATAM|Avianca|Azul|Gol|Sky)\b/i.test(lg.n||"")&&(!lg.est||lg.h<=10)&&lg.h<=30;
+  const ok=lg=>lg.m!=="flight"&&!/\b(fly|flight|flights|airport)\b/i.test((lg.n||"").split(" Alt:")[0])&&(!lg.est||lg.h<=10)&&lg.h<=30;
   const ids=STOPS.map(s=>s.id);const dist={},prev={};ids.forEach(i=>dist[i]=Infinity);dist[aId]=0;const done=new Set();
   const a=BY[aId],b=BY[bId],D=haversine(a,b);
   for(let n=0;n<ids.length;n++){let u=null,best=Infinity;for(const i of ids){if(!done.has(i)&&dist[i]<best){best=dist[i];u=i;}}if(u===null||u===bId)break;done.add(u);
