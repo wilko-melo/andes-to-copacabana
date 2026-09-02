@@ -183,6 +183,12 @@ svg.z-far .pin.on:not(.sel):not(:hover):not(.t1) text.lbl{opacity:0}
 .pin.dayon .pulse{opacity:1;animation:pulse 1s ease-out infinite}
 .pin.lblhide text.lbl{opacity:0!important}
 .pin.lblhide:hover text.lbl{opacity:1!important}
+.pois .poi{display:none;cursor:pointer}
+svg.z-poi .pois .poi{display:block}
+.poi circle{fill:var(--teal);stroke:var(--pin-halo);stroke-width:1.5}
+.poi .pk{font-size:5px;fill:#062A28;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.poi .pl{font-family:var(--body);font-size:7.5px;font-weight:600;fill:var(--ink);paint-order:stroke;stroke:var(--sea);stroke-width:2.5px;stroke-linejoin:round;text-anchor:middle;pointer-events:none}
+.poi.hot circle{fill:var(--accent);r:6}
 .pin.hidden{display:none}
 .pin.faded{opacity:.3}
 .pin .wxr{fill:none;stroke-width:3;opacity:0}
@@ -215,6 +221,17 @@ svg.wx .pin .wxr{opacity:.95}
 .tip.leg .tt .mode{display:flex;gap:6px;align-items:center;font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2)}
 .tip.leg .tt .mode svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 /* play overlay */
+.suggest{position:absolute;left:14px;bottom:14px;z-index:7;width:min(360px,calc(100% - var(--pw) - 56px));background:var(--glass2);backdrop-filter:blur(18px);border:1px solid var(--glass-line);border-radius:16px;padding:10px;box-shadow:var(--shadow);display:grid;gap:6px}
+.suggest .sh{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);padding:0 2px 2px}
+.suggest .sh b{color:var(--ink)}.suggest .sh button{font-size:16px;color:var(--muted)}
+.suggest .sg{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;text-align:left;background:var(--surface2);border:1px solid var(--line2);border-radius:10px;padding:6px 8px;transition:all .15s}
+.suggest .sg:hover{border-color:var(--accent);transform:translateX(2px)}
+.suggest .sg img{width:44px;height:36px;object-fit:cover;border-radius:7px}
+.suggest .sg b{font-family:var(--display);font-size:13px;font-weight:700;display:block}
+.suggest .sg small{color:var(--muted);font-size:11px;font-family:var(--mono)}
+.suggest .sg i{position:static;width:10px;height:10px;border-radius:50%;display:block}
+.app.pcol .suggest{width:min(360px,calc(100% - 140px))}
+@media (max-width:760px){.suggest{bottom:calc(var(--sheet) + 10px);width:calc(100% - 16px);left:8px}}
 .play{position:absolute;left:14px;bottom:14px;z-index:7;display:none;width:min(420px,calc(100% - var(--pw) - 56px));background:var(--glass2);backdrop-filter:blur(18px);border:1px solid var(--glass-line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
 .play.show{display:grid;grid-template-columns:150px 1fr}
 .play img{width:100%;height:100%;object-fit:cover;display:block;min-height:120px}
@@ -317,6 +334,13 @@ h3.sec button{font-size:10.5px;letter-spacing:.04em;text-transform:none;color:va
 .anchor .field input[type=text]{width:180px;font-family:var(--body)}
 .anchor .st{flex-basis:100%;font-size:12.5px}
 .anchor .st.ok{color:var(--good)}.anchor .st.miss{color:var(--bad)}
+.pois-list{display:grid;gap:6px}
+.poirow{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;text-align:left;background:var(--bg2);border-radius:10px;padding:7px 10px;transition:background .15s}
+.poirow:hover{background:var(--accent-soft)}
+.poirow .pkind{width:26px;height:26px;border-radius:50%;background:var(--teal);color:#062A28;display:grid;place-items:center;font-size:12px}
+.poirow b{font-family:var(--display);font-size:13.5px;font-weight:700;display:block}
+.poirow small{display:block;color:var(--muted);font-size:11.5px}
+.poirow .go{font-family:var(--mono);font-size:10.5px;color:var(--teal)}
 .nearby{display:grid;gap:6px}
 .nearby button{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;text-align:left;background:var(--bg2);border-radius:10px;padding:6px 8px;transition:background .15s}
 .nearby button:hover{background:var(--accent-soft)}
@@ -371,6 +395,10 @@ h3.sec button{font-size:10.5px;letter-spacing:.04em;text-transform:none;color:va
 .empty{padding:44px 24px;text-align:center;color:var(--muted);display:grid;gap:12px;justify-items:center}
 .empty h2{font-size:20px;font-weight:700;color:var(--ink)}
 .empty p{margin:0;max-width:36ch}
+.empty.photo{padding:0;border-radius:14px;overflow:hidden;position:relative;display:block;text-align:left;min-height:170px}
+.empty.photo img{width:100%;height:190px;object-fit:cover;display:block}
+.empty.photo .et{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,0,0,.72));color:#fff;display:grid;align-content:end;padding:14px 16px;gap:4px}
+.empty.photo h2{color:#fff;font-size:20px}.empty.photo p{color:rgba(255,255,255,.88);max-width:44ch}
 .small-note{font-size:12px;color:var(--muted)}
 .credits-link{font-size:12px;color:var(--muted)}.credits-link button{color:var(--teal);text-decoration:underline;font-size:12px}
 
@@ -403,6 +431,7 @@ h3.sec button{font-size:10.5px;letter-spacing:.04em;text-transform:none;color:va
 .settings2 .f.lock b::before{content:"🔒 ";font-size:11px}
 .settings2 .arr{color:var(--faint)}
 .settings2 .days{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.settings2 .tempo input{width:110px;accent-color:var(--accent)}
 .settings2 .help{width:18px;height:18px;border-radius:50%;border:1px solid var(--line);color:var(--muted);font-size:11px;display:grid;place-items:center;cursor:help}
 
 .route-pane{padding:14px 16px 28px;display:grid;gap:14px}
@@ -684,7 +713,7 @@ details.pre .presets{padding:0 12px 12px}
   .brand .mark{width:30px;height:30px;border-radius:9px}.brand .mark svg{width:17px;height:17px}
   .brand h1{font-size:16px}.brand .sub{display:none}
   .meter{min-width:0}.meter-legend{display:none}.meter-head{font-size:10.5px}.meter-bar{height:8px}
-  .iconbtn{height:32px;width:32px;padding:0;justify-content:center;gap:0}.iconbtn kbd,.iconbtn .lbl{display:none}
+  .iconbtn{height:32px;width:32px;padding:0;justify-content:center;gap:0}.hdr-right{gap:6px}.iconbtn kbd,.iconbtn .lbl{display:none}
   .meter-head span:first-child,.meter-head .xtra{display:none}.meter-head{justify-content:flex-end}.meter-head strong{font-size:11.5px}
   .filters{left:8px;right:8px;max-width:none;top:calc(var(--hh) - 8px);flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
   .filters::-webkit-scrollbar{display:none}
@@ -747,7 +776,7 @@ details.pre .presets{padding:0 12px 12px}
       <div class="meter-legend" id="meterLegend"></div>
     </div>
     <div class="hdr-right">
-      <button class="iconbtn" id="searchBtn" title="Search stops"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><span class="lbl">Search</span> <kbd>/</kbd></button>
+      <button class="iconbtn" id="themeBtn" title="Light / dark"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9c-4 0-7-3-9-9z"/></svg></button><button class="iconbtn" id="searchBtn" title="Search stops"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><span class="lbl">Search</span> <kbd>/</kbd></button>
     </div>
   </header>
 
