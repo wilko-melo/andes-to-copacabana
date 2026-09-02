@@ -473,6 +473,7 @@ h3.sec button{font-size:10.5px;letter-spacing:.04em;text-transform:none;color:va
 .rins button:hover,.rins button.armed{border-style:solid;border-color:var(--accent);color:var(--accent);background:var(--accent-soft);transform:scale(1.15)}
 .rins span{font-size:11px;color:var(--faint)}
 .toolbar{display:flex;gap:8px;flex-wrap:wrap}
+.toolbar.top{background:var(--bg2);border-radius:12px;padding:10px 12px;position:sticky;top:0;z-index:2}
 .compare{display:grid;gap:8px;background:var(--bg2);border-radius:12px;padding:12px}
 .compare h4{margin:0;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700}
 .compare table{width:100%;border-collapse:collapse;font-size:12.5px}
@@ -3119,6 +3120,7 @@ function renderRoute(){
   if(!state.route.length){pane.innerHTML=`<div class="route-pane">${settingsHTML()}<div class="empty"><h2>No stops yet</h2><p>Tap a stop on the map or in Explore, then “Add to route”. Or start from a preset:</p></div><div class="presets" id="presetsIn"></div></div>`;bindSettings(pane);renderPresetsInto(pane.querySelector("#presetsIn"));return;}
   const rioCls=S.rioDays<1?"bad":S.rioDays<3?"warn":S.rioDays>14?"warn":"good";
   let html=`<div class="route-pane">${settingsHTML()}${todayHTML(S)}
+   <div class="toolbar top"><button class="btn small" id="share"><svg viewBox="0 0 24 24"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M12 3v13M7 8l5-5 5 5"/></svg>Send to phone</button><button class="btn ghost small" id="playR"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg>Play route</button><button class="btn ghost small" id="calR">Calendar</button><button class="btn ghost small" id="autosort">Auto-sort</button><button class="btn ghost small" id="export">Export trip file</button><button class="btn ghost small" id="copy">Copy as text</button><button class="btn ghost small" id="fit">Fit map</button><button class="btn danger small" id="clear">Clear</button></div>
    <div class="summary">
     <div class="fact ${rioCls}"><small>Days in Rio</small><b>${S.rioDays<1?"−"+S.over:S.rioDays}</b></div>
     <div class="fact"><small>Transport</small><b>~$${S.transport.toLocaleString()}</b></div>
@@ -3149,7 +3151,6 @@ function renderRoute(){
   if(state.slots.A&&state.slots.B){const a=statsOf(state.slots.A.route),b=statsOf(state.slots.B.route);const rowsC=[["Stops",a.stops,b.stops],["Countries",a.ccs,b.ccs],["Days in Rio",a.rio,b.rio],["Flights",a.flights,b.flights],["Bus/boat hours",a.busH,b.busH],["Transport $",a.transport,b.transport],["Beds $",a.hostel,b.hostel],["Total est. $",a.total,b.total]];cmp=`<table><tr><th></th><th>A · ${esc(state.slots.A.name||"")}</th><th>B · ${esc(state.slots.B.name||"")}</th></tr>${rowsC.map(([l,x,y])=>`<tr><td>${l}</td><td>${x.toLocaleString()}</td><td>${y.toLocaleString()}</td></tr>`).join("")}</table>`;}
   html+=`</div>
    <details class="pre"><summary>Start from a preset route</summary><div class="presets" id="presetsIn"></div></details>
-   <div class="toolbar"><button class="btn small" id="share"><svg viewBox="0 0 24 24"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M12 3v13M7 8l5-5 5 5"/></svg>Send to phone</button><button class="btn ghost small" id="autosort">Auto-sort</button><button class="btn ghost small" id="export">Export trip file</button><button class="btn ghost small" id="copy">Copy as text</button><button class="btn ghost small" id="fit">Fit map</button><button class="btn danger small" id="clear">Clear</button></div>
    <div class="compare"><h4>Compare two routes</h4>${slotRow("A")}${slotRow("B")}${cmp}</div>
    <p class="small-note">Legs marked “researched” were checked in Sep 2026 against Rome2rio, Busbud and airline fares; “estimate” legs are distance-based guesses. “Send to phone” copies a link that opens this exact route on any device.</p>
   </div>`;
@@ -3173,7 +3174,7 @@ function renderRoute(){
   renderPresetsInto(pane.querySelector("#presetsIn"));
   pane.querySelector("#clear").onclick=()=>{snap();state.route=[];commit();toast("Route cleared",undoLast);};
   pane.querySelector("#fit").onclick=()=>fitRoute(true);
-  pane.querySelector("#copy").onclick=copyText;pane.querySelector("#share").onclick=shareLink;pane.querySelector("#export").onclick=exportTrip;pane.querySelector("#autosort").onclick=autoSort;
+  pane.querySelector("#copy").onclick=copyText;pane.querySelector("#share").onclick=shareLink;pane.querySelector("#export").onclick=exportTrip;pane.querySelector("#autosort").onclick=autoSort;pane.querySelector("#playR").onclick=playRoute;pane.querySelector("#calR").onclick=()=>{const d=pane.querySelector(".cal-d");d.open=!d.open;state.calOpen=d.open;save();if(d.open)d.scrollIntoView({behavior:"smooth",block:"start"});};
   pane.querySelectorAll("[data-save]").forEach(b=>b.onclick=()=>{const name=prompt("Name this route (optional)","Route "+b.dataset.save)||"";state.slots[b.dataset.save]={name,route:state.route.map(r=>({...r}))};commit();toast(`Saved as ${b.dataset.save}`);});
   pane.querySelectorAll("[data-load]").forEach(b=>b.onclick=()=>{snap();state.route=state.slots[b.dataset.load].route.map(r=>({...r}));commit();fitRoute(true);toast(`Loaded ${b.dataset.load}`,undoLast);});
 }
